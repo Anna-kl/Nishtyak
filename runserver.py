@@ -3,7 +3,7 @@ This script runs the Nishtyak application using a development server.
 """
 
 from os import environ
-from Nishtyak import app
+from Nishtyak.__init__ import app
 
 if __name__ == '__main__':
     HOST = environ.get('SERVER_HOST', 'localhost')
