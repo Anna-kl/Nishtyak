@@ -13,7 +13,6 @@ from datetime import datetime
 from flask import render_template
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-from jwkest.jwt import JWT
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
