@@ -20,7 +20,7 @@ cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 import Nishtyak.views
 
 app.config['SQLALCHEMY_DATABASE_URI'] \
-    = "postgres://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
+    = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
 db = SQLAlchemy(app)
