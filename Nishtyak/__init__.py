@@ -1,12 +1,10 @@
 """
 The flask application package.
 """
-import json
-import random
+
 import uuid
 from functools import wraps
-import requests
-import jwt
+
 from flask_cors import CORS
 
 from flask import Flask, jsonify, make_response, request
