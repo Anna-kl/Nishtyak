@@ -27,7 +27,8 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 from Nishtyak.Models.user import User, Code
-from Nishtyak.Models.menu import Product
+from Nishtyak.Models.menu import Product, Stock
+
 
 def token_required(f):
    @wraps(f)
@@ -42,7 +43,6 @@ def token_required(f):
 
       return f(user, *args, **kwargs)
    return decorator
-
 
 # Авторизация и регистрация
 @app.route('/api/register/<phone>', methods=['GET'])
@@ -123,9 +123,16 @@ def UpdateAccount(current_user):
     return jsonify({'message': 'success', 'code': 200,
                     'data': updateddata.as_dict()})
 
+
+# меню и акции
 @app.route('/api/product', methods=['GET'])
-def home():
+def get_product():
     products = list(map(lambda x: x.as_dict(), Product.query.all()))
+    return jsonify({'message': '', 'code': 200, 'data': products})
+
+@app.route('/api/stock', methods=['GET'])
+def get_stock():
+    products = list(map(lambda x: x.as_dict(), Stock.query.all()))
     return jsonify({'message': '', 'code': 200, 'data': products})
 
 
@@ -149,3 +156,10 @@ def about():
         year=datetime.now().year,
         message='Your application description page.'
     )
+
+
+# корзина, скидка
+
+@app.route('/add_product', methods=['POST'])
+def addProduct():
+    json_data = request.get_json()
