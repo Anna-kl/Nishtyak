@@ -80,8 +80,60 @@ class Code(db.Model):
         self.code = code
         self.user_id = user_id
 
-    def __repr__(self):
+    def __str__(self):
         return f"<Code: {self.code}>"
+
+class Address(db.Model):
+    __tablename__='address'
+    id = db.Column(db.Integer, primary_key=True)
+    idUser = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    address = db.Column(db.String())
+    floor = db.Column(db.Integer)
+    house = db.Column(db.Integer)
+    intercom = db.Column(db.String())
+    apartment = db.Column(db.Integer)
+    dttmUpdate = db.Column(DateTime(timezone=True), default=func.now())
+    entrance = db.Column(db.Integer)
+
+    def __init__(self, idUser, address, floor, house, intercom, apartment, dttmUpdate, entrance):
+        self.idUser = idUser
+        self.address = address
+        self.floor = floor
+        self.house = house
+        self.intercom = intercom
+        self.apartment = apartment
+        self.dttmUpdate = dttmUpdate
+        self.entrance = entrance
+
+    def __str__(self):
+        return f"<Address: {self.code}>"
+
+    def check(self, address_new):
+        if self.address != address_new.address:
+            return False
+        if self.apartment != address_new.apartment:
+            return False
+        if self.entrance != address_new.entrance:
+            return False
+        if self.floor != address_new.floor:
+            return False
+        if self.house != address_new.house:
+            return False
+        if self.intercom != address_new.intercom:
+            return False
+        return True
+
+    def update(self, address):
+        self.intercom = address.intercom
+        self.address = address.address
+        self.house = address.house
+        self.entrance = address.entrance
+        self.floor = address.floor
+        self.apartment = address.apartment
+
+    def as_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
 
 
 db.create_all()

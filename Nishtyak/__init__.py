@@ -4,8 +4,8 @@ The flask application package.
 
 import uuid
 from functools import wraps
-
-from flask_cors import CORS
+import json
+from flask_cors import CORS, cross_origin
 
 from flask import Flask, jsonify, make_response, request
 
@@ -15,19 +15,26 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
+
+from Nishtyak.Models.jeneral import SendPrice, CouponSend, SendOrder
+
 app = Flask(__name__)
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
+app.config['CORS_HEADERS'] = 'Content-Type'
 import Nishtyak.views
 
 app.config['SQLALCHEMY_DATABASE_URI'] \
     = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
+#app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-from Nishtyak.Models.user import User, Code
+from Nishtyak.Models.user import User, Code, Address
 from Nishtyak.Models.menu import Product, Stock
+from Nishtyak.Models.backet import Backets, Order, InfoOrder
+from Nishtyak.Models.bonus import Bonus
 
 
 def token_required(f):
@@ -44,6 +51,17 @@ def token_required(f):
       return f(user, *args, **kwargs)
    return decorator
 
+# This decorator takes the class/namedtuple to convert any JSON
+# data in incoming request to.
+def convert_input_to(class_=None):
+    def decorator(f):
+        @wraps(f)
+        def decorator_function(*args, **kwargs):
+            obj = class_(**request.get_json())
+            return f(obj)
+        return decorator_function
+    return decorator
+
 # Авторизация и регистрация
 @app.route('/api/register/<phone>', methods=['GET'])
 def signup_user(phone):
@@ -57,20 +75,13 @@ def signup_user(phone):
                 db.session.commit()
 
         code='1111'
-        # code = str(random.randint(1000, 9999))
-        #
-        # request = requests.get('https://api.ucaller.ru/v1.0/initCall?service_id=424899&key=87P72MxNzTKK2IaHC4J2dtCvckI8dr3C&phone={0}&code={1}'.
-        #                        format(phone, code))
-        # result = json.loads(request.content.decode())
 
-        # if (result['status']):
         if True:
             new_code = Code(user_id=check.id, code=code)
             db.session.add(new_code)
             db.session.commit()
             return jsonify({'message': 'user found', 'code': 200})
-        else:
-            return jsonify({'message': 'not found', 'code': 404})
+
     else:
         coupon = generate_password_hash(phone[2:5], method='sha256')
         new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon=coupon[1:9])
@@ -123,6 +134,83 @@ def UpdateAccount(current_user):
     return jsonify({'message': 'success', 'code': 200,
                     'data': updateddata.as_dict()})
 
+# Поиск адреса клиента
+@app.route('/api/getAddress/<phone>', methods=['GET'])
+def getAddress(phone):
+    address = db.session.query(Address).join(User, User.id==Address.idUser).filter(User.phone == phone).first()
+    if address is None:
+        user = db.session.query(User).filter(User.phone == phone).first()
+        if user is None:
+            coupon = generate_password_hash(phone[2:5], method='sha256')
+            hashed_password = generate_password_hash(phone, method='sha256')
+            new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon=coupon[1:9])
+            db.session.add(new_user)
+            db.session.commit()
+            return jsonify({'message': 'success', 'code': 404,
+                    'data': new_user.id})
+        else:
+            return jsonify({'message': 'success', 'code': 404,
+                            'data': user.id})
+    else:
+        return jsonify({'message': 'success', 'code': 200,
+                        'data': address.as_dict()})
+
+# Поиск адреса в базе
+@app.route('/api/searchAddress', methods=['POST'])
+def searchAddress():
+    address=request.get_json()
+    search = request.get('https://geocode-maps.yandex.ru/1.x/?apikey=a2c8035f-05f9-4489-aea1-ad9b2a841572&geocode={0}&format=json'
+                         .format(address))
+    return jsonify({'message': 'success', 'code': 404,
+                    'data': address})
+
+# создание заказа
+@app.route('/api/createOrder/', methods=['POST'])
+@convert_input_to(SendOrder)
+def createOrder(order):
+    address = db.session.query(Address).filter(Address.idUser == order.idUser).first()
+    if address is None:
+        if order.selfPickup == False:
+            address = Address(idUser = order.idUser, address=order.address, floor=order.floor,
+                          house = order.house, intercom=order.intercom, apartment=order.apartment,
+                          dttmUpdate=datetime.now(), entrance=order.entrance)
+            db.session.add(address)
+            db.session.commit()
+    backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
+    backet.status = 'accepted'
+    if address is None:
+        infoOrder = InfoOrder(idAddress = -1, dttmCreate = datetime.now(),
+                          idBacket = order.idBacket, comment = '', appliances = -1,
+                            pay = '', status = 'create', sale=order.sale)
+    else:
+        infoOrder = InfoOrder(idAddress=address.id, dttmCreate=datetime.now(),
+                              idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
+                              pay=order.pay, status='create', sale=order.sale)
+    db.session.add(infoOrder)
+    db.session.commit()
+    backet.price = order.totalPrice
+    bonus = db.session.query(Bonus).filter(Bonus.idUser == order.idUser).first()
+    if bonus is None:
+        bonus = Bonus(count = order.totalPrice*0.05, idUser = order.idUser,
+                        dttmUpdate =  datetime.now())
+        db.session.add(bonus)
+    else:
+        if order.sale == 'bonus':
+            bonus.count = 0
+        bonus.count += order.totalPrice*0.05
+        bonus.dttmUpdate = datetime.now()
+    if order.sale == 'coupon':
+        user = db.session.query(User).filter(User.id == order.idUser).first()
+        user.coupon = None
+    db.session.commit()
+    send=dict(
+        bonus = bonus.count,
+        idOrder = infoOrder.id,
+        totalPrice = order.totalPrice
+    )
+    return jsonify({'message': 'success', 'code': 201,
+                    'data': send })
+
 
 # меню и акции
 @app.route('/api/product', methods=['GET'])
@@ -136,30 +224,102 @@ def get_stock():
     return jsonify({'message': '', 'code': 200, 'data': products})
 
 
-@app.route('/contact')
-def contact():
-    """Renders the contact page."""
-    return render_template(
-        'contact.html',
-        title='Contact',
-        year=datetime.now().year,
-        message='Your contact page.'
-    )
+# работа с корзиной
+@app.route('/api/backet', methods=['POST'])
+@convert_input_to(Backets)
+def createBacket(backet):
+    backetOld = db.session.query(Backets).filter(Backets.session == backet.session).first()
+    if backetOld is None:
+        db.session.add(backet)
+        db.session.commit()
+        return jsonify({'message': '', 'code': 200, 'data': backet.id})
+    else:
+        backetOld.update(backet)
+        db.session.commit()
+        return jsonify({'message': '', 'code': 200, 'data': backetOld.id})
+
+@app.route('/api/getCount/<session>', methods=['GET'])
+@cross_origin(origin='localhost',headers=['Content- Type'])
+def getCount(session):
+    try:
+        backet = db.session.query(Order).join(Backets, Backets.id == Order.idBacket)\
+        .filter(Backets.session==session).all()
+        return jsonify({'message': '', 'code': 200, 'data': backet.__len__()})
+    except Exception as ex:
+        return jsonify({'message': '', 'code': 400, 'data': ''})
+
+@app.route('/api/getIdBacket/<session>', methods=['GET'])
+def getIdBacket(session):
+    backet = db.session.query(Backets).filter(Backets.session==session).first()
+    if backet is not None:
+        return jsonify({'message': '', 'code': 200, 'data': backet.id})
+    else:
+        return jsonify({'message': '', 'code': 404, 'data': ''})
 
 
-@app.route('/about')
-def about():
-    """Renders the about page."""
-    return render_template(
-        'about.html',
-        title='About',
-        year=datetime.now().year,
-        message='Your application description page.'
-    )
+@app.route('/api/order', methods=['POST'])
+@convert_input_to(Order)
+def addProduct(order):
+    orders = db.session.query(Order).filter(Order.idBacket == order.idBacket)\
+        .filter(Order.idProduct == order.idProduct).first()
+    if orders is not None:
+        orders.count += order.count
+    else:
+        db.session.add(order)
+    db.session.commit()
+    return jsonify({'message': '', 'code': 200, 'data': order.id})
+
+@app.route('/api/getListProducts/<session>', methods=['GET'])
+def getListProducts(session):
+    backet = db.session.query(Backets).filter(Backets.session==session and (Backets.status == 'active')).first()
+    res = []
+    if backet is not None:
+        results = db.session.query(Order, Product).join(Product, Product.id == Order.idProduct).filter(Order.idBacket==backet.id).all()
+        for order, product in results:
+            res.append({
+                'id': order.id,
+                'dttmAdd': order.dttmAdd,
+                'idBacket': order.idBacket,
+                'count': order.count,
+                'idProduct': order.idProduct,
+                'structure': product.structure,
+                'price': product.price,
+                'name': product.name,
+                'weight': product.weight
+            })
+        # res = list(map(lambda x: x.to_dict(), res))
+        return jsonify({'message': '', 'code': 200,
+                        'data':res})
+    else:
+        return jsonify({'message': '', 'code': 404, 'data': ''})
 
 
-# корзина, скидка
+# расчет стоимости
+@app.route('/api/getTotalPrice', methods=['POST'])
+@convert_input_to(SendPrice)
+def getTotalPrice(price):
+    products = db.session.query(Product).join(Order) \
+        .filter(Order.idBacket == price.idBacket).all()
+    sendPrice = 0
+    for i in products:
+        sendPrice += i.price
 
-@app.route('/add_product', methods=['POST'])
-def addProduct():
-    json_data = request.get_json()
+    if price.idUser is None:
+        coupon = CouponSend(None,None, sendPrice)
+        return jsonify({'message': '', 'code': 200, 'data': coupon.serialize()})
+    else:
+        user = db.session.query(User).filter(User.id == price.idUser).first()
+        if user.coupon is not None:
+            sendPrice = sendPrice*0.8
+            coupon = CouponSend(user.coupon, 0, sendPrice)
+            return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
+        else:
+            bonuses = db.session.query(Bonus).filter(Bonus.idUser == user.id).first()
+            if price.isBonuses:
+
+                sendPrice = sendPrice - bonuses.count
+                coupon = CouponSend(user.coupon, bonuses.count, sendPrice)
+                return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
+            else:
+                coupon = CouponSend(user.coupon, bonuses.count, sendPrice)
+                return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
