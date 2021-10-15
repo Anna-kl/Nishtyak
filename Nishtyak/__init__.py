@@ -11,6 +11,7 @@ from flask import Flask, jsonify, make_response, request
 
 from datetime import datetime
 from flask import render_template
+from flask_mail import Mail, Message
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -21,8 +22,14 @@ from Nishtyak.Models.jeneral import SendPrice, CouponSend, SendOrder
 app = Flask(__name__)
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config['CORS_HEADERS'] = 'Content-Type'
+app.config['MAIL_SERVER']='smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'akklimova@gmail.com'
+app.config['MAIL_PASSWORD'] = 'Aa2537300'
+app.config['MAIL_USE_SSL'] = True
 import Nishtyak.views
-
+mail = Mail()
+mail.init_app(app)
 app.config['SQLALCHEMY_DATABASE_URI'] \
     = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
 #app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
@@ -208,6 +215,27 @@ def createOrder(order):
         idOrder = infoOrder.id,
         totalPrice = order.totalPrice
     )
+    products = db.session.query(Order, Product).join(Product, Order.idProduct == Product.id)\
+        .filter(Order.idBacket == order.idBacket).all()
+    user = db.session.query(User).filter(User.id == order.idUser).first()
+    msg = Message('Новый заказ',
+                  sender='akklimova@gmail.com',
+                  recipients=['klimova_88@mail.ru'])
+    msg.body = "Клиент - {0}\n" \
+               "Адрес доставки - {1}, дом {2}, квартира - {3}," \
+               "подъезд - {4}, этаж - {5}, код домофона - {6}\n" \
+               "Оплата - {7}\n" \
+               "Комментарий - {8}\n" \
+               "Приборов - {9}\n" \
+               "Заказ:\n".format(user.phone, address.address, address.house,
+                                 address.apartment, address.entrance, address.floor,
+                                 address.intercom, order.pay, order.comment, order.appliances,
+                                 )
+    for p in products:
+        msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
+    msg.body+='Сумма - {0}\n' \
+              'Скидка - {1}'.format(order.totalPrice, order.sale)
+    mail.send(msg)
     return jsonify({'message': 'success', 'code': 201,
                     'data': send })
 
@@ -223,6 +251,14 @@ def get_stock():
     products = list(map(lambda x: x.as_dict(), Stock.query.all()))
     return jsonify({'message': '', 'code': 200, 'data': products})
 
+#удалить продукт
+@app.route('/api/deleteOrder', methods=['POST'])
+@convert_input_to(Order)
+def delete_order(sendOrder):
+    db.session.query(Order).filter(Order.idBacket == sendOrder.idBacket)\
+        .filter(Order.idProduct == sendOrder.idProduct).delete()
+    db.session.commit()
+    return jsonify({'message': '', 'code': 200, 'data': ''})
 
 # работа с корзиной
 @app.route('/api/backet', methods=['POST'])
@@ -241,6 +277,7 @@ def createBacket(backet):
 @app.route('/api/getCount/<session>', methods=['GET'])
 @cross_origin(origin='localhost',headers=['Content- Type'])
 def getCount(session):
+
     try:
         backet = db.session.query(Order).join(Backets, Backets.id == Order.idBacket)\
         .filter(Backets.session==session).all()
@@ -298,11 +335,11 @@ def getListProducts(session):
 @app.route('/api/getTotalPrice', methods=['POST'])
 @convert_input_to(SendPrice)
 def getTotalPrice(price):
-    products = db.session.query(Product).join(Order) \
+    products = db.session.query(Product, Order).join(Order) \
         .filter(Order.idBacket == price.idBacket).all()
     sendPrice = 0
     for i in products:
-        sendPrice += i.price
+        sendPrice += i.Product.price * i.Order.count
 
     if price.idUser is None:
         coupon = CouponSend(None,None, sendPrice)
@@ -310,7 +347,7 @@ def getTotalPrice(price):
     else:
         user = db.session.query(User).filter(User.id == price.idUser).first()
         if user.coupon is not None:
-            sendPrice = sendPrice*0.8
+            sendPrice = round(sendPrice*0.8)
             coupon = CouponSend(user.coupon, 0, sendPrice)
             return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
         else:
