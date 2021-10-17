@@ -244,7 +244,7 @@ def createOrder(order):
         msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
     msg.body+='Сумма - {0}\n' \
               'Скидка - {1}'.format(order.totalPrice, order.sale)
-    mail.send(msg)
+    #mail.send(msg)
     bot.send_message(604587575, msg.body)
     bot.send_message(1145917265, msg.body)
     return jsonify({'message': 'success', 'code': 201,
