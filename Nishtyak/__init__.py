@@ -221,16 +221,19 @@ def createOrder(order):
     msg = Message('Новый заказ',
                   sender='akklimova@gmail.com',
                   recipients=['klimova_88@mail.ru'])
-    msg.body = "Клиент - {0}\n" \
-               "Адрес доставки - {1}, дом {2}, квартира - {3}," \
-               "подъезд - {4}, этаж - {5}, код домофона - {6}\n" \
-               "Оплата - {7}\n" \
-               "Комментарий - {8}\n" \
-               "Приборов - {9}\n" \
-               "Заказ:\n".format(user.phone, address.address, address.house,
+    msg.body = "Клиент - {0}\n".format(user.phone)
+    if order.selfPickup == False:
+        msg.body += "Адрес доставки - {0}, дом {1}, квартира - {2}," \
+               "подъезд - {3}, этаж - {4}, код домофона - {5}\n" \
+               "Оплата - {6}\n" \
+               "Комментарий - {7}\n" \
+               "Приборов - {8}\n" \
+               "Заказ:\n".format(address.address, address.house,
                                  address.apartment, address.entrance, address.floor,
                                  address.intercom, order.pay, order.comment, order.appliances,
                                  )
+    else:
+        msg.body += 'Самовывоз\n'
     for p in products:
         msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
     msg.body+='Сумма - {0}\n' \
