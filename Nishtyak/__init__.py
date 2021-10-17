@@ -1,7 +1,7 @@
 """
 The flask application package.
 """
-
+import telebot
 import uuid
 from functools import wraps
 import json
@@ -37,6 +37,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+api_key = '2047227856:AAG2mQL01K0avmGX1p2RzKPR9bbZHUQtfh4'
+
+bot = telebot.TeleBot(api_key, parse_mode=None)
+
 
 from Nishtyak.Models.user import User, Code, Address
 from Nishtyak.Models.menu import Product, Stock
@@ -218,27 +223,29 @@ def createOrder(order):
     products = db.session.query(Order, Product).join(Product, Order.idProduct == Product.id)\
         .filter(Order.idBacket == order.idBacket).all()
     user = db.session.query(User).filter(User.id == order.idUser).first()
-    msg = Message('Новый заказ',
-                  sender='akklimova@gmail.com',
-                  recipients=['klimova_88@mail.ru'])
-    # msg.body = "Клиент - {0}\n".format(user.phone)
-    # if order.selfPickup == False:
-    #     msg.body += "Адрес доставки - {0}, дом {1}, квартира - {2}," \
-    #            "подъезд - {3}, этаж - {4}, код домофона - {5}\n" \
-    #            "Оплата - {6}\n" \
-    #            "Комментарий - {7}\n" \
-    #            "Приборов - {8}\n" \
-    #            "Заказ:\n".format(address.address, address.house,
-    #                              address.apartment, address.entrance, address.floor,
-    #                              address.intercom, order.pay, order.comment, order.appliances,
-    #                              )
-    # else:
-    #     msg.body += 'Самовывоз\n'
-    # for p in products:
-    #     msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
-    # msg.body+='Сумма - {0}\n' \
-    #           'Скидка - {1}'.format(order.totalPrice, order.sale)
-    # mail.send(msg)
+    # msg = Message('Новый заказ',
+    #               sender='akklimova@gmail.com',
+    #               recipients=['klimova_88@mail.ru'])
+    # формирование ответа
+    msg = ''
+    msg.body = "Клиент - {0}\n".format(user.phone)
+    if order.selfPickup == False:
+        msg.body += "Адрес доставки - {0}, дом {1}, квартира - {2}," \
+               "подъезд - {3}, этаж - {4}, код домофона - {5}\n" \
+               "Оплата - {6}\n" \
+               "Комментарий - {7}\n" \
+               "Приборов - {8}\n" \
+               "Заказ:\n".format(address.address, address.house,
+                                 address.apartment, address.entrance, address.floor,
+                                 address.intercom, order.pay, order.comment, order.appliances,
+                                 )
+    else:
+        msg.body += 'Самовывоз\n'
+    for p in products:
+        msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
+    msg.body+='Сумма - {0}\n' \
+              'Скидка - {1}'.format(order.totalPrice, order.sale)
+    bot.send_message(604587575, msg)
     return jsonify({'message': 'success', 'code': 201,
                     'data': send })
 
