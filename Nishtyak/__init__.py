@@ -27,6 +27,12 @@ app.config['MAIL_PORT'] = 465
 app.config['MAIL_USERNAME'] = 'akklimova@gmail.com'
 app.config['MAIL_PASSWORD'] = 'Aa2537300'
 app.config['MAIL_USE_SSL'] = True
+
+
+api_key = '2047227856:AAG2mQL01K0avmGX1p2RzKPR9bbZHUQtfh4'
+
+bot = telebot.TeleBot(api_key, parse_mode=None)
+
 import Nishtyak.views
 mail = Mail()
 mail.init_app(app)
@@ -37,11 +43,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
-api_key = '2047227856:AAG2mQL01K0avmGX1p2RzKPR9bbZHUQtfh4'
-
-bot = telebot.TeleBot(api_key, parse_mode=None)
-
 
 from Nishtyak.Models.user import User, Code, Address
 from Nishtyak.Models.menu import Product, Stock
@@ -223,11 +224,9 @@ def createOrder(order):
     products = db.session.query(Order, Product).join(Product, Order.idProduct == Product.id)\
         .filter(Order.idBacket == order.idBacket).all()
     user = db.session.query(User).filter(User.id == order.idUser).first()
-    # msg = Message('Новый заказ',
-    #               sender='akklimova@gmail.com',
-    #               recipients=['klimova_88@mail.ru'])
-    # формирование ответа
-    msg = ''
+    msg = Message('Новый заказ',
+                  sender='akklimova@gmail.com',
+                  recipients=['klimova_88@mail.ru'])
     msg.body = "Клиент - {0}\n".format(user.phone)
     if order.selfPickup == False:
         msg.body += "Адрес доставки - {0}, дом {1}, квартира - {2}," \
@@ -245,7 +244,9 @@ def createOrder(order):
         msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
     msg.body+='Сумма - {0}\n' \
               'Скидка - {1}'.format(order.totalPrice, order.sale)
-    bot.send_message(604587575, msg)
+    mail.send(msg)
+    bot.send_message(604587575, msg.body)
+    bot.send_message(1145917265, msg.body)
     return jsonify({'message': 'success', 'code': 201,
                     'data': send })
 
