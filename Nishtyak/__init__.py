@@ -221,24 +221,24 @@ def createOrder(order):
     msg = Message('Новый заказ',
                   sender='akklimova@gmail.com',
                   recipients=['klimova_88@mail.ru'])
-    msg.body = "Клиент - {0}\n".format(user.phone)
-    if order.selfPickup == False:
-        msg.body += "Адрес доставки - {0}, дом {1}, квартира - {2}," \
-               "подъезд - {3}, этаж - {4}, код домофона - {5}\n" \
-               "Оплата - {6}\n" \
-               "Комментарий - {7}\n" \
-               "Приборов - {8}\n" \
-               "Заказ:\n".format(address.address, address.house,
-                                 address.apartment, address.entrance, address.floor,
-                                 address.intercom, order.pay, order.comment, order.appliances,
-                                 )
-    else:
-        msg.body += 'Самовывоз\n'
-    for p in products:
-        msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
-    msg.body+='Сумма - {0}\n' \
-              'Скидка - {1}'.format(order.totalPrice, order.sale)
-    mail.send(msg)
+    # msg.body = "Клиент - {0}\n".format(user.phone)
+    # if order.selfPickup == False:
+    #     msg.body += "Адрес доставки - {0}, дом {1}, квартира - {2}," \
+    #            "подъезд - {3}, этаж - {4}, код домофона - {5}\n" \
+    #            "Оплата - {6}\n" \
+    #            "Комментарий - {7}\n" \
+    #            "Приборов - {8}\n" \
+    #            "Заказ:\n".format(address.address, address.house,
+    #                              address.apartment, address.entrance, address.floor,
+    #                              address.intercom, order.pay, order.comment, order.appliances,
+    #                              )
+    # else:
+    #     msg.body += 'Самовывоз\n'
+    # for p in products:
+    #     msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
+    # msg.body+='Сумма - {0}\n' \
+    #           'Скидка - {1}'.format(order.totalPrice, order.sale)
+    # mail.send(msg)
     return jsonify({'message': 'success', 'code': 201,
                     'data': send })
 
