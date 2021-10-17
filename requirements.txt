@@ -9,3 +9,4 @@ flask_sqlalchemy==2.5.1
 sqlalchemy_utils==0.37.8
 psycopg2==2.9.1
 Flask-Mail
+pyTelegramBotAPI==4.1.1
