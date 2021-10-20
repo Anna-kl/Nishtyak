@@ -88,12 +88,12 @@ class Address(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     idUser = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     address = db.Column(db.String())
-    floor = db.Column(db.Integer)
-    house = db.Column(db.Integer)
+    floor = db.Column(db.String())
+    house = db.Column(db.String())
     intercom = db.Column(db.String())
-    apartment = db.Column(db.Integer)
+    apartment = db.Column(db.String())
     dttmUpdate = db.Column(DateTime(timezone=True), default=func.now())
-    entrance = db.Column(db.Integer)
+    entrance = db.Column(db.String())
 
     def __init__(self, idUser, address, floor, house, intercom, apartment, dttmUpdate, entrance):
         self.idUser = idUser
