@@ -37,6 +37,8 @@ class Order(db.Model):
     idProduct=db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     idBacket=db.Column(db.Integer, db.ForeignKey('backets.id'), nullable=False)
     count = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Float)
+    toping = db.Column(db.String())
 
     def __str__(self):
         return f"<Orders: {self.name}>"

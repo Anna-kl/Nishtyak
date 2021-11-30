@@ -36,9 +36,9 @@ bot = telebot.TeleBot(api_key, parse_mode=None)
 import Nishtyak.views
 mail = Mail()
 mail.init_app(app)
-app.config['SQLALCHEMY_DATABASE_URI'] \
-    = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
-#app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
+# app.config['SQLALCHEMY_DATABASE_URI'] \
+#     = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
 db = SQLAlchemy(app)
@@ -48,7 +48,7 @@ from Nishtyak.Models.user import User, Code, Address
 from Nishtyak.Models.menu import Product, Stock
 from Nishtyak.Models.backet import Backets, Order, InfoOrder
 from Nishtyak.Models.bonus import Bonus
-
+from Nishtyak.Models.rules import Rules
 
 def token_required(f):
    @wraps(f)
@@ -181,80 +181,86 @@ def searchAddress():
 @app.route('/api/createOrder/', methods=['POST'])
 @convert_input_to(SendOrder)
 def createOrder(order):
-    address = db.session.query(Address).filter(Address.idUser == order.idUser).first()
-    if address is None:
-        if order.selfPickup == False:
-            address = Address(idUser = order.idUser, address=order.address, floor=order.floor,
-                          house = order.house, intercom=order.intercom, apartment=order.apartment,
-                          dttmUpdate=datetime.now(), entrance=order.entrance)
-            db.session.add(address)
-            db.session.commit()
-    backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
-    backet.status = 'accepted'
-    if address is None:
-        infoOrder = InfoOrder(idAddress = -1, dttmCreate = datetime.now(),
-                          idBacket = order.idBacket, comment = '', appliances = -1,
-                            pay = '', status = 'create', sale=order.sale)
-    else:
-        infoOrder = InfoOrder(idAddress=address.id, dttmCreate=datetime.now(),
-                              idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
-                              pay=order.pay, status='create', sale=order.sale)
-    db.session.add(infoOrder)
-    db.session.commit()
-    backet.price = order.totalPrice
-    bonus = db.session.query(Bonus).filter(Bonus.idUser == order.idUser).first()
-    if bonus is None:
-        bonus = Bonus(count = order.totalPrice*0.05, idUser = order.idUser,
-                        dttmUpdate =  datetime.now())
-        db.session.add(bonus)
-    else:
-        if order.sale == 'bonus':
-            bonus.count = 0
-        bonus.count += order.totalPrice*0.05
-        bonus.dttmUpdate = datetime.now()
-    if order.sale == 'coupon':
+    try:
+        address = db.session.query(Address).filter(Address.idUser == order.idUser).first()
+        if address is None:
+            if order.selfPickup == False:
+                address = Address(idUser = order.idUser, address=order.address, floor=order.floor,
+                              house = order.house, intercom=order.intercom, apartment=order.apartment,
+                              dttmUpdate=datetime.now(), entrance=order.entrance)
+                db.session.add(address)
+                db.session.commit()
+        backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
+        backet.status = 'accepted'
+        if address is None:
+            infoOrder = InfoOrder(idAddress = -1, dttmCreate = datetime.now(),
+                              idBacket = order.idBacket, comment = '', appliances = -1,
+                                pay = '', status = 'create', sale=order.sale)
+        else:
+            infoOrder = InfoOrder(idAddress=address.id, dttmCreate=datetime.now(),
+                                  idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
+                                  pay=order.pay, status='create', sale=order.sale)
+        db.session.add(infoOrder)
+        db.session.commit()
+        backet.price = order.totalPrice
+        bonus = db.session.query(Bonus).filter(Bonus.idUser == order.idUser).first()
+        if bonus is None:
+            bonus = Bonus(count = order.totalPrice*0.05, idUser = order.idUser,
+                            dttmUpdate =  datetime.now())
+            db.session.add(bonus)
+        else:
+            if order.sale == 'bonus':
+                bonus.count = 0
+            bonus.count += order.totalPrice*0.05
+            bonus.dttmUpdate = datetime.now()
+        if order.sale == 'coupon':
+            user = db.session.query(User).filter(User.id == order.idUser).first()
+            user.coupon = None
+        db.session.commit()
+        send=dict(
+            bonus = bonus.count,
+            idOrder = infoOrder.id,
+            totalPrice = order.totalPrice
+        )
+        products = db.session.query(Order, Product).join(Product, Order.idProduct == Product.id)\
+            .filter(Order.idBacket == order.idBacket).all()
         user = db.session.query(User).filter(User.id == order.idUser).first()
-        user.coupon = None
-    db.session.commit()
-    send=dict(
-        bonus = bonus.count,
-        idOrder = infoOrder.id,
-        totalPrice = order.totalPrice
-    )
-    products = db.session.query(Order, Product).join(Product, Order.idProduct == Product.id)\
-        .filter(Order.idBacket == order.idBacket).all()
-    user = db.session.query(User).filter(User.id == order.idUser).first()
-    msg = Message('Новый заказ',
-                  sender='akklimova@gmail.com',
-                  recipients=['klimova_88@mail.ru'])
-    msg.body = "Клиент - {0}\n".format(user.phone)
-    if order.selfPickup == False:
-        msg.body += "Адрес доставки - {0}, дом {1}, квартира - {2}," \
-               "подъезд - {3}, этаж - {4}, код домофона - {5}\n" \
-               "Оплата - {6}\n" \
-               "Комментарий - {7}\n" \
-               "Приборов - {8}\n" \
-               "Заказ:\n".format(address.address, address.house,
-                                 address.apartment, address.entrance, address.floor,
-                                 address.intercom, order.pay, order.comment, order.appliances,
-                                 )
-    else:
-        msg.body += 'Самовывоз\n'
-    for p in products:
-        msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
-    msg.body+='Сумма - {0}\n' \
-              'Скидка - {1}'.format(order.totalPrice, order.sale)
-    #mail.send(msg)
-    bot.send_message(604587575, msg.body)
-    bot.send_message(1145917265, msg.body)
-    return jsonify({'message': 'success', 'code': 201,
-                    'data': send })
+        msg = Message('Новый заказ',
+                      sender='akklimova@gmail.com',
+                      recipients=['klimova_88@mail.ru'])
+        msg.body = "Клиент - {0}\n".format(user.phone)
+        if order.selfPickup == False:
+            msg.body += "Адрес доставки - {0}, дом {1}, квартира - {2}," \
+                   "подъезд - {3}, этаж - {4}, код домофона - {5}\n" \
+                   "Оплата - {6}\n" \
+                   "Комментарий - {7}\n" \
+                   "Приборов - {8}\n" \
+                   "Заказ:\n".format(address.address, address.house,
+                                     address.apartment, address.entrance, address.floor,
+                                     address.intercom, order.pay, order.comment, order.appliances,
+                                     )
+        else:
+            msg.body += 'Самовывоз\n'
+        for p in products:
+            msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
+        msg.body+='Сумма - {0}\n' \
+                  'Скидка - {1}'.format(order.totalPrice, order.sale)
+        #mail.send(msg)
+        bot.send_message(604587575, msg.body)
+        bot.send_message(1145917265, msg.body)
+        return jsonify({'message': 'success', 'code': 201,
+                        'data': send })
+    except Exception as e:
+        bot.send_message(604587575, 'Ошибка при заказе, User - {0}'.format(order.idUser))
+        bot.send_message(1145917265, 'Ошибка при заказе, User - {0}'.format(order.idUser))
+        return jsonify({'message': 'error', 'code': 400,
+                        'data': ''})
 
 
 # меню и акции
 @app.route('/api/product', methods=['GET'])
 def get_product():
-    products = list(map(lambda x: x.as_dict(), Product.query.all()))
+    products = list(map(lambda x: x.as_dict(), db.session.query(Product).all()))
     return jsonify({'message': '', 'code': 200, 'data': products})
 
 @app.route('/api/stock', methods=['GET'])
@@ -331,7 +337,7 @@ def getListProducts(session):
                 'count': order.count,
                 'idProduct': order.idProduct,
                 'structure': product.structure,
-                'price': product.price,
+                'price': order.price,
                 'name': product.name,
                 'weight': product.weight
             })
@@ -352,6 +358,7 @@ def getTotalPrice(price):
     for i in products:
         sendPrice += i.Product.price * i.Order.count
 
+   # user = db.session.query(User).filter(User.id == price.idUser).first()
     if price.idUser is None:
         coupon = CouponSend(None,None, sendPrice)
         return jsonify({'message': '', 'code': 200, 'data': coupon.serialize()})
@@ -359,6 +366,7 @@ def getTotalPrice(price):
         user = db.session.query(User).filter(User.id == price.idUser).first()
         if user.coupon is not None:
             sendPrice = round(sendPrice*0.8)
+          #  bonus = db.session.query(Bonus).filter(Bonus.idUser == user.id).first()
             coupon = CouponSend(user.coupon, 0, sendPrice)
             return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
         else:
@@ -371,3 +379,25 @@ def getTotalPrice(price):
             else:
                 coupon = CouponSend(user.coupon, bonuses.count, sendPrice)
                 return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
+
+@app.route('/api/getOptionalProduct/<id>', methods=['GET'])
+def getOptionalProduct(id):
+    rules = db.session.query(Rules).all()
+    for rule in rules:
+        idPruductFor = json.loads(rule.productFor)
+        if int(id) in idPruductFor:
+            idProductsOn = db.session.query(Product)\
+                .filter(Product.id.in_(json.loads(rule.productOn))).all()
+            products = list(map(lambda x: x.as_dict(), idProductsOn))
+            rulesSend = rule.as_dict()
+            return jsonify({'message': '', 'code': 200, 'data': products, 'rule': rulesSend})
+    return jsonify({'message': '', 'code': 400, 'data': ''})
+
+@app.route('/api/checkProduct/<id>', methods=['GET'])
+def checkProduct(id):
+    rules = db.session.query(Rules).all()
+    for rule in rules:
+        idPruductFor = json.loads(rule.productFor)
+        if int(id) in idPruductFor:
+            return jsonify({'message': '', 'code': 200, 'data': ''})
+    return jsonify({'message': '', 'code': 400, 'data': ''})

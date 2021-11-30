@@ -4,11 +4,12 @@ from sqlalchemy.sql import func
 
 from Nishtyak import db
 
+
 class Product(db.Model):
     __tablename__ = 'products'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(),  nullable=False)
+    name = db.Column(db.String(), nullable=False)
     structure = db.Column(db.String(), nullable=False)
     price = db.Column(db.Integer, nullable=False)
     dttm_add = db.Column(DateTime(timezone=True), default=func.now())
@@ -27,11 +28,12 @@ class Product(db.Model):
     def as_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
+
 class Stock(db.Model):
     __tablename__ = 'stock'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(),  nullable=False)
+    name = db.Column(db.String(), nullable=False)
     describe = db.Column(db.String(), nullable=False)
     dttm_add = db.Column(DateTime(timezone=True), default=func.now())
     icon = db.Column(db.String(), nullable=False)
@@ -42,5 +44,6 @@ class Stock(db.Model):
 
     def as_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
 
 db.create_all()
