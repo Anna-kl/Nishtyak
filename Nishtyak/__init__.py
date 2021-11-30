@@ -36,9 +36,9 @@ bot = telebot.TeleBot(api_key, parse_mode=None)
 import Nishtyak.views
 mail = Mail()
 mail.init_app(app)
-# app.config['SQLALCHEMY_DATABASE_URI'] \
-#     = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
+app.config['SQLALCHEMY_DATABASE_URI'] \
+     = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
+#app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
 db = SQLAlchemy(app)
@@ -356,10 +356,13 @@ def getTotalPrice(price):
         .filter(Order.idBacket == price.idBacket).all()
     sendPrice = 0
     for i in products:
-        sendPrice += i.Product.price * i.Order.count
+        sendPrice += i.Order.price * i.Order.count
 
-   # user = db.session.query(User).filter(User.id == price.idUser).first()
-    if price.idUser is None:
+    # user = db.session.query(User).filter(User.id == price.idUser).first()
+    # if user is None:
+    #     coupon = CouponSend(None, None, sendPrice)
+    #     return jsonify({'message': '', 'code': 400, 'data': sendPrice})
+    if price.idUser is None or price.idUser == -1:
         coupon = CouponSend(None,None, sendPrice)
         return jsonify({'message': '', 'code': 200, 'data': coupon.serialize()})
     else:
