@@ -154,10 +154,14 @@ def getAddress(phone):
     if address is None:
         user = db.session.query(User).filter(User.phone == phone).first()
         if user is None:
-            coupon = generate_password_hash(phone[2:5], method='sha256')
+           # coupon = generate_password_hash(phone[2:5], method='sha256')
+            coupon = None
             hashed_password = generate_password_hash(phone, method='sha256')
-            new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon=coupon[1:9])
+            new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon=None)
             db.session.add(new_user)
+            db.session.commit()
+            bonus = Bonus(count = 0, idUser = new_user.id, dttmUpdate = datetime.now())
+            db.session.add(bonus)
             db.session.commit()
             return jsonify({'message': 'success', 'code': 404,
                     'data': new_user.id})
@@ -225,6 +229,9 @@ def createOrder(order):
         products = db.session.query(Order, Product).join(Product, Order.idProduct == Product.id)\
             .filter(Order.idBacket == order.idBacket).all()
         user = db.session.query(User).filter(User.id == order.idUser).first()
+        backet.idUser = user.id
+        backet.dttmClose = datetime.now()
+        db.session.commit()
         msg = Message('Новый заказ',
                       sender='akklimova@gmail.com',
                       recipients=['klimova_88@mail.ru'])
@@ -244,7 +251,10 @@ def createOrder(order):
         for p in products:
             msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
         msg.body+='Сумма - {0}\n' \
-                  'Скидка - {1}'.format(order.totalPrice, order.sale)
+                  'Скидка - {1}\n'.format(order.totalPrice, order.sale)
+        msg.body += 'Комментарий - {0}\n' \
+                    'Приборов - {1}'.format(order.comment, order.appliances)
+
         #mail.send(msg)
         bot.send_message(604587575, msg.body)
         bot.send_message(1145917265, msg.body)
@@ -357,7 +367,8 @@ def getTotalPrice(price):
     sendPrice = 0
     for i in products:
         sendPrice += i.Order.price * i.Order.count
-
+    if price.selfPicker:
+        sendPrice = sendPrice*0.9
     # user = db.session.query(User).filter(User.id == price.idUser).first()
     # if user is None:
     #     coupon = CouponSend(None, None, sendPrice)
@@ -375,7 +386,6 @@ def getTotalPrice(price):
         else:
             bonuses = db.session.query(Bonus).filter(Bonus.idUser == user.id).first()
             if price.isBonuses:
-
                 sendPrice = sendPrice - bonuses.count
                 coupon = CouponSend(user.coupon, bonuses.count, sendPrice)
                 return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})

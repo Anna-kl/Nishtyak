@@ -2,11 +2,13 @@ class SendPrice:
     idBacket = 0
     idUser = 0
     isBonuses=False
+    selfPicker = False
 
-    def __init__(self, idBacket, idUser, isBonuses):
+    def __init__(self, idBacket, idUser, isBonuses, selfPicker):
         self.idBacket = idBacket
         self.idUser = idUser
         self.isBonuses = isBonuses
+        self.selfPicker = selfPicker
 
 
 class CouponSend:
