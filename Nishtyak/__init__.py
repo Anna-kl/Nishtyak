@@ -37,9 +37,9 @@ bot = telebot.TeleBot(api_key, parse_mode=None)
 import Nishtyak.views
 mail = Mail()
 mail.init_app(app)
-#app.config['SQLALCHEMY_DATABASE_URI'] \
-#     = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
+app.config['SQLALCHEMY_DATABASE_URI'] \
+     = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
+#app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
 db = SQLAlchemy(app)
