@@ -2,6 +2,7 @@
 The flask application package.
 """
 import telebot
+from sqlalchemy import func
 import uuid
 from functools import wraps
 import json
@@ -36,9 +37,9 @@ bot = telebot.TeleBot(api_key, parse_mode=None)
 import Nishtyak.views
 mail = Mail()
 mail.init_app(app)
-app.config['SQLALCHEMY_DATABASE_URI'] \
-     = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
-#app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
+#app.config['SQLALCHEMY_DATABASE_URI'] \
+#     = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
 db = SQLAlchemy(app)
@@ -49,6 +50,7 @@ from Nishtyak.Models.menu import Product, Stock
 from Nishtyak.Models.backet import Backets, Order, InfoOrder
 from Nishtyak.Models.bonus import Bonus
 from Nishtyak.Models.rules import Rules
+from Nishtyak.Models.winner import Winner
 
 def token_required(f):
    @wraps(f)
@@ -194,14 +196,12 @@ def createOrder(order):
                               dttmUpdate=datetime.now(), entrance=order.entrance)
                 db.session.add(address)
                 db.session.commit()
+        elif address.check(order) == False:
+            address.update(order)
         backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
         backet.status = 'accepted'
-        if address is None:
-            infoOrder = InfoOrder(idAddress = -1, dttmCreate = datetime.now(),
-                              idBacket = order.idBacket, comment = '', appliances = -1,
-                                pay = '', status = 'create', sale=order.sale)
-        else:
-            infoOrder = InfoOrder(idAddress=address.id, dttmCreate=datetime.now(),
+
+        infoOrder = InfoOrder(idAddress=address.id, dttmCreate=datetime.now(),
                                   idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
                                   pay=order.pay, status='create', sale=order.sale)
         db.session.add(infoOrder)
@@ -249,7 +249,10 @@ def createOrder(order):
         else:
             msg.body += 'Самовывоз\n'
         for p in products:
-            msg.body+='{0}, количество - {1}\n'.format(p.Product.name, p.Order.count)
+            msg.body+='{0}, количество - {1}'.format(p.Product.name, p.Order.count)
+            if p.Order.toping is not None:
+                msg.body += ' {0}'.format(p.Order.toping)
+            msg.body += '\n'
         msg.body+='Сумма - {0}\n' \
                   'Скидка - {1}\n'.format(order.totalPrice, order.sale)
         msg.body += 'Комментарий - {0}\n' \
@@ -282,8 +285,13 @@ def get_stock():
 @app.route('/api/deleteOrder', methods=['POST'])
 @convert_input_to(Order)
 def delete_order(sendOrder):
-    db.session.query(Order).filter(Order.idBacket == sendOrder.idBacket)\
-        .filter(Order.idProduct == sendOrder.idProduct).delete()
+    order = db.session.query(Order).filter(Order.idBacket == sendOrder.idBacket)\
+        .filter(Order.idProduct == sendOrder.idProduct)
+    if order.first().toping == 'gift':
+        backet = db.session.query(Backets).filter(Backets.id == sendOrder.idBacket).first()
+        if backet.option == 'gift':
+            backet.option = None
+    order.delete()
     db.session.commit()
     return jsonify({'message': '', 'code': 200, 'data': ''})
 
@@ -333,26 +341,60 @@ def addProduct(order):
     db.session.commit()
     return jsonify({'message': '', 'code': 200, 'data': order.id})
 
+
+@app.route('/api/addgift', methods=['POST'])
+@convert_input_to(Order)
+def addGift(order):
+    order.toping = 'gift'
+    backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
+    backet.option = 'gift'
+
+    db.session.add(order)
+    db.session.commit()
+    return jsonify({'message': '', 'code': 201, 'data': order.id})
+
 @app.route('/api/getListProducts/<session>', methods=['GET'])
 def getListProducts(session):
     backet = db.session.query(Backets).filter(Backets.session==session and (Backets.status == 'active')).first()
     res = []
     if backet is not None:
         results = db.session.query(Order, Product).join(Product, Product.id == Order.idProduct).filter(Order.idBacket==backet.id).all()
+        price = db.session.query(func.sum(Order.price * Order.count)).filter(Order.idBacket==backet.id).first()
+        rule = db.session.query(Rules).filter(Rules.option == 'gift').all()
         for order, product in results:
-            res.append({
-                'id': order.id,
-                'dttmAdd': order.dttmAdd,
-                'idBacket': order.idBacket,
-                'count': order.count,
-                'idProduct': order.idProduct,
-                'structure': product.structure,
-                'price': order.price,
-                'name': product.name,
-                'weight': product.weight
-            })
-        # res = list(map(lambda x: x.to_dict(), res))
-        return jsonify({'message': '', 'code': 200,
+            flagAdd = True
+            if order.toping == 'gift':
+                for r in rule:
+
+                    if order.idProduct in json.loads(r.productOn):
+                        if price[0] < r.condition:
+                            db.session.query(Order).filter(Order.id == order.id).delete()
+                            backet.option = None
+                            db.session.commit()
+                            return jsonify({'message': '', 'code': 400, 'data': ''})
+
+            if flagAdd:
+                res.append({
+                    'id': order.id,
+                    'dttmAdd': order.dttmAdd,
+                    'idBacket': order.idBacket,
+                    'count': order.count,
+                    'idProduct': order.idProduct,
+                    'structure': product.structure,
+                    'price': order.price,
+                    'name': product.name,
+                    'weight': product.weight
+                })
+        flagAdd = False
+        if backet.option is None and price[0] is not None:
+            for r in rule:
+                if int(r.condition) <= price[0]:
+                     flagAdd = True
+
+        code = 200
+        if flagAdd:
+            code = 201
+        return jsonify({'message': '', 'code': code,
                         'data':res})
     else:
         return jsonify({'message': '', 'code': 404, 'data': ''})
@@ -414,3 +456,23 @@ def checkProduct(id):
         if int(id) in idPruductFor:
             return jsonify({'message': '', 'code': 200, 'data': ''})
     return jsonify({'message': '', 'code': 400, 'data': ''})
+
+@app.route('/api/getGift/<session>', methods=['GET'])
+def getGift(session):
+    rules = db.session.query(Rules).filter(Rules.option == 'gift').all()
+    backet = db.session.query(Backets).filter(Backets.session == session and (Backets.status == 'active')).first()
+    if backet.option == 'gift':
+        return jsonify({'message': '', 'code': 400, 'data': ''})
+    price = db.session.query(func.sum(Order.price * Order.count)).filter(Order.idBacket == backet.id).first()
+    product = []
+    for rule in rules:
+        if int(rule.condition) <= price[0]:
+            product.extend(db.session.query(Product) \
+                .filter(Product.id.in_(json.loads(rule.productOn))).all())
+    products = list(map(lambda x: x.as_dict(), product))
+    rulesSend = {
+        'rule': 'onetoone',
+         'title': 'Подарок'
+    }
+    return jsonify({'message': '', 'code': 200, 'data': products, 'rule': rulesSend})
+

@@ -12,6 +12,7 @@ class Backets(db.Model):
     session = db.Column(db.String(), nullable=True)
     idUser = db.Column(db.Integer, nullable=False)
     status = db.Column(db.String())
+    option = db.Column(db.String())
     dttmClose = db.Column(DateTime(timezone=True))
     price=db.Column(db.Integer, nullable=False)
 

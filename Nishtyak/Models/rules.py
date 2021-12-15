@@ -14,6 +14,8 @@ class Rules(db.Model):
     productOn = db.Column(db.String())
     price = db.Column(db.Integer)
     rule = db.Column(db.String())
+    option = db.Column(db.String())
+    condition = db.Column(db.Integer)
 
     def __repr__(self):
         return f"<Rule: {self.name}>"
