@@ -27,5 +27,9 @@ class Winner(db.Model):
     def __str__(self):
         return f"<Winner: {self.code}>"
 
+    def as_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
+
 
 db.create_all()

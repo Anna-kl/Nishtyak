@@ -2,7 +2,7 @@
 The flask application package.
 """
 import telebot
-from sqlalchemy import func
+from sqlalchemy import func, desc
 import uuid
 from functools import wraps
 import json
@@ -357,6 +357,7 @@ def addGift(order):
 def getListProducts(session):
     backet = db.session.query(Backets).filter(Backets.session==session and (Backets.status == 'active')).first()
     res = []
+    flagGift = False
     if backet is not None:
         results = db.session.query(Order, Product).join(Product, Product.id == Order.idProduct).filter(Order.idBacket==backet.id).all()
         price = db.session.query(func.sum(Order.price * Order.count)).filter(Order.idBacket==backet.id).first()
@@ -364,6 +365,7 @@ def getListProducts(session):
         for order, product in results:
             flagAdd = True
             if order.toping == 'gift':
+                flagGift = True
                 for r in rule:
 
                     if order.idProduct in json.loads(r.productOn):
@@ -386,6 +388,9 @@ def getListProducts(session):
                     'weight': product.weight
                 })
         flagAdd = False
+        if flagGift == False and backet.option == 'gift':
+            backet.option = None
+            db.session.commit()
         if backet.option is None and price[0] is not None:
             for r in rule:
                 if int(r.condition) <= price[0]:
@@ -399,6 +404,14 @@ def getListProducts(session):
     else:
         return jsonify({'message': '', 'code': 404, 'data': ''})
 
+
+# получить подарки
+@app.route('/api/LastRaffle', methods=['GET'])
+def getLastRaffle():
+    subquery = db.session.query(Winner).order_by(desc(Winner.createAt)).first()
+    raffle = db.session.query(Winner).filter(func.DATE(Winner.createAt) == func.DATE(subquery.createAt)).order_by(Winner.place).all()
+    send = list(map(lambda x: x.as_dict(), raffle))
+    return jsonify({'message': '', 'code': 200, 'data': send})
 
 # расчет стоимости
 @app.route('/api/getTotalPrice', methods=['POST'])
