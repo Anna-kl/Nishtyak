@@ -345,11 +345,16 @@ def addProduct(order):
 @app.route('/api/addgift', methods=['POST'])
 @convert_input_to(Order)
 def addGift(order):
-    order.toping = 'gift'
     backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
-    backet.option = 'gift'
+    if order.idProduct != -1:
+        order.toping = 'gift'
 
-    db.session.add(order)
+        backet.option = 'gift'
+        db.session.add(order)
+    else:
+        backet.option = 'None'
+        order.toping = 'None'
+
     db.session.commit()
     return jsonify({'message': '', 'code': 201, 'data': order.id})
 
@@ -364,6 +369,8 @@ def getListProducts(session):
         rule = db.session.query(Rules).filter(Rules.option == 'gift').all()
         for order, product in results:
             flagAdd = True
+            if order.toping == 'None':
+                continue
             if order.toping == 'gift':
                 flagGift = True
                 for r in rule:
@@ -395,7 +402,9 @@ def getListProducts(session):
             for r in rule:
                 if int(r.condition) <= price[0]:
                      flagAdd = True
-
+        if backet.option == 'None':
+            backet.option = None
+            db.session.commit()
         code = 200
         if flagAdd:
             code = 201
