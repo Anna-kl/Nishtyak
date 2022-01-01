@@ -13,6 +13,7 @@ class Schedule(db.Model):
     reason = db.Column(db.String())
     status = db.Column(db.Boolean)
     rule = db.Column(db.String())
+    icon = db.Column(db.String())
 
     def __str__(self):
         return f"Режим работы: {self.name}>"

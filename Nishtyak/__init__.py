@@ -51,6 +51,7 @@ from Nishtyak.Models.backet import Backets, Order, InfoOrder
 from Nishtyak.Models.bonus import Bonus
 from Nishtyak.Models.rules import Rules
 from Nishtyak.Models.winner import Winner
+from Nishtyak.Models.schedule import Schedule
 
 def token_required(f):
    @wraps(f)
@@ -501,3 +502,21 @@ def getGift(session):
     }
     return jsonify({'message': '', 'code': 200, 'data': products, 'rule': rulesSend})
 
+# region schedule
+
+@app.route('/api/getSchedule', methods=['GET'])
+def getSchedule():
+    d = datetime.now()
+    schedule = db.session.query(Schedule).filter(
+        Schedule.dateOpen <= datetime.now()).filter(Schedule.dateClose >= datetime.now())\
+        .filter(Schedule.status).filter(Schedule.rule == 'one').first()
+    if schedule:
+        return jsonify({'message': '', 'code': 200, 'data': schedule.as_dict()})
+    else:
+        schedule = db.session.query(Schedule).filter(Schedule.status).filter(Schedule.rule == 'regular').first()
+        if schedule:
+            return jsonify({'message': '', 'code': 200, 'data': schedule.as_dict()})
+        return jsonify({'message': '', 'code': 404})
+
+
+# end region schedule
