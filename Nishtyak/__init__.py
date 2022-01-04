@@ -197,14 +197,19 @@ def createOrder(order):
                               dttmUpdate=datetime.now(), entrance=order.entrance)
                 db.session.add(address)
                 db.session.commit()
+                infoOrder = InfoOrder(idAddress=address.id, dttmCreate=datetime.now(),
+                                      idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
+                                      pay=order.pay, status='create', sale=order.sale)
+            else:
+                infoOrder = InfoOrder(idAddress=-1, dttmCreate=datetime.now(),
+                                      idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
+                                      pay=None, status='create', sale=order.sale)
         elif address.check(order) == False:
             address.update(order)
         backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
         backet.status = 'accepted'
 
-        infoOrder = InfoOrder(idAddress=address.id, dttmCreate=datetime.now(),
-                                  idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
-                                  pay=order.pay, status='create', sale=order.sale)
+
         db.session.add(infoOrder)
         db.session.commit()
         backet.price = order.totalPrice
