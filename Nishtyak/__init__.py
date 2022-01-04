@@ -99,8 +99,8 @@ def signup_user(phone):
             return jsonify({'message': 'user found', 'code': 200})
 
     else:
-        coupon = generate_password_hash(phone[2:5], method='sha256')
-        new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon=coupon[1:9])
+        coupon = None
+        new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon=coupon)
         db.session.add(new_user)
         db.session.commit()
         new_code = Code(user_id=new_user.id, code='1111')
@@ -112,7 +112,7 @@ def signup_user(phone):
 def check_code():
     auth = request.get_json()
     auth['phone'] = auth['phone'].replace('+', '').replace('(', '').replace(')', '')
-    check = User.query.join(Code, User.id == Code.user_id).\
+    check = db.session.query(User).join(Code, User.id == Code.user_id).\
         filter(User.phone == auth['phone']).filter(Code.code == str(auth['code'])).first()
     if check:
         auth_token = check.encode_auth_token(check.id)
@@ -192,20 +192,21 @@ def createOrder(order):
         address = db.session.query(Address).filter(Address.idUser == order.idUser).first()
         if address is None:
             if order.selfPickup == False:
-                address = Address(idUser = order.idUser, address=order.address, floor=order.floor,
-                              house = order.house, intercom=order.intercom, apartment=order.apartment,
-                              dttmUpdate=datetime.now(), entrance=order.entrance)
+                address = Address(idUser=order.idUser, address=order.address, floor=order.floor,
+                                  house=order.house, intercom=order.intercom, apartment=order.apartment,
+                                  dttmUpdate=datetime.now(), entrance=order.entrance)
                 db.session.add(address)
                 db.session.commit()
-                infoOrder = InfoOrder(idAddress=address.id, dttmCreate=datetime.now(),
-                                      idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
-                                      pay=order.pay, status='create', sale=order.sale)
-            else:
-                infoOrder = InfoOrder(idAddress=-1, dttmCreate=datetime.now(),
-                                      idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
-                                      pay=None, status='create', sale=order.sale)
         elif address.check(order) == False:
             address.update(order)
+        if order.selfPickup == True:
+            infoOrder = InfoOrder(idAddress=-1, dttmCreate=datetime.now(),
+                                  idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
+                                  pay=None, status='create', sale=order.sale)
+        else:
+            infoOrder = InfoOrder(idAddress=address.id, dttmCreate=datetime.now(),
+                                  idBacket=order.idBacket, comment=order.comment, appliances=order.appliances,
+                                  pay=order.pay, status='create', sale=order.sale)
         backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
         backet.status = 'accepted'
 
