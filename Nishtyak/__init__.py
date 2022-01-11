@@ -38,14 +38,14 @@ import Nishtyak.views
 mail = Mail()
 mail.init_app(app)
 app.config['SQLALCHEMY_DATABASE_URI'] \
-      = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
+    = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
 #app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-from Nishtyak.Models.user import User, Code, Address
+from Nishtyak.Models.user import User, Code, Address, ShowUser
 from Nishtyak.Models.menu import Product, Stock
 from Nishtyak.Models.backet import Backets, Order, InfoOrder
 from Nishtyak.Models.bonus import Bonus
@@ -81,7 +81,6 @@ def convert_input_to(class_=None):
 # Авторизация и регистрация
 @app.route('/api/register/<phone>', methods=['GET'])
 def signup_user(phone):
-    phone = phone[1:len(phone)].replace('(', '').replace(')', '')
     hashed_password = generate_password_hash(phone, method='sha256')
     check = User.query.filter_by(phone=phone).first()
     if check:
@@ -106,12 +105,15 @@ def signup_user(phone):
         new_code = Code(user_id=new_user.id, code='1111')
         db.session.add(new_code)
         db.session.commit()
+        bonus = Bonus(idUser=new_user.id, dttmUpdate = datetime.now(),
+                      count=0)
+        db.session.add(bonus)
+        db.session.commit()
         return jsonify({'message': 'registered', 'code': 201})
 
 @app.route('/api/register/check', methods=['POST'])
 def check_code():
     auth = request.get_json()
-    auth['phone'] = auth['phone'].replace('+', '').replace('(', '').replace(')', '')
     check = db.session.query(User).join(Code, User.id == Code.user_id).\
         filter(User.phone == auth['phone']).filter(Code.code == str(auth['code'])).first()
     if check:
@@ -135,7 +137,9 @@ def login_user():
 @app.route('/api/user', methods=['GET'])
 @token_required
 def getAccount(current_user):
-    user = User.query.filter_by(id=current_user).first()
+    user = db.session.query(User).filter_by(id=current_user).first()
+    bonus = db.session.query(Bonus).filter(current_user == Bonus.idUser).first()
+    user = ShowUser(user, bonus.count)
     return jsonify({'message': 'success', 'code': 200,
                     'data': user.as_dict()})
 
@@ -209,7 +213,7 @@ def createOrder(order):
                                   pay=order.pay, status='create', sale=order.sale)
         backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
         backet.status = 'accepted'
-
+        backet.idUser = order.idUser
 
         db.session.add(infoOrder)
         db.session.commit()
@@ -497,7 +501,8 @@ def getGift(session):
     for rule in rules:
         if int(rule.condition) <= price[0]:
             pr = db.session.query(Product) \
-                .filter(Product.id.in_(json.loads(rule.productOn))).all()
+                .filter(Product.id.in_(json.loads(rule.productOn))) \
+                .filter(Product.status == True).all()
             for i in pr:
                 i.price = rule.price
             product.extend(pr)
@@ -526,3 +531,20 @@ def getSchedule():
 
 
 # end region schedule
+
+#region getHistory
+@app.route('/api/getHistoryBacket', methods=['GET'])
+@token_required
+def getHistoryOrder(current_user):
+    user = db.session.query(User).filter(User.id == current_user).first()
+    orders = db.session.query(Backets).filter(Backets.idUser == user.id).\
+        filter(Backets.status == 'accepted').all()
+    for i in orders:
+        order = db.session.query(Order).filter(Order.idBacket == i.id).all()
+        desc = []
+        for temp_order in order:
+            product = db.session.query(Product).filter(Product.id == temp_order.idProduct).first()
+            desc.append(product.name)
+        i.desc = ','.join(desc)
+    orders = list(map(lambda x: x.sendBacketInfo(), orders))
+    return jsonify({'message': '', 'code': 200, 'data': orders})

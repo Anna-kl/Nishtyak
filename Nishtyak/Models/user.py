@@ -135,5 +135,19 @@ class Address(db.Model):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 
+class ShowUser:
+
+    def __init__(self, user, bonus):
+        self.id = user.id
+        self.email = user.email
+        self.phone = user.phone
+        self.password = user.password
+        self.name = user.name
+        self.dttm_add = user.dttm_add
+        self.bonus = bonus
+
+    def as_dict(self):
+        return {'phone': self.phone, 'name': self.name, 'bonus': self.bonus,
+                'email': self.email}
 
 db.create_all()

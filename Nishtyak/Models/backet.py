@@ -29,6 +29,14 @@ class Backets(db.Model):
         else:
             self.dttmCreate = backet.dttmCreate
 
+    def sendBacketInfo(self):
+        return {
+            'dttmClose': self.dttmClose,
+            'price': self.price,
+            'desc': self.desc
+        }
+
+
 
 class Order(db.Model):
     __tablename__ = 'orders'
@@ -46,6 +54,7 @@ class Order(db.Model):
 
     def as_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
 
 class InfoOrder(db.Model):
     __tablename__='infoOrders'
