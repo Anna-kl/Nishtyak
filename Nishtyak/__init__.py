@@ -103,7 +103,7 @@ def signup_user(phone):
 
         response = requests.post(app.config['URLVOICECALL'], data=data)
         response = json.loads(response.text)
-        print(response )
+        print(response)
         if response['result'] == 'ok':
         #if True:
             new_code = Code(user_id=check.id, code=code)
