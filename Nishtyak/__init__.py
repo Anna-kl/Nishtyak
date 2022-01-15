@@ -134,7 +134,7 @@ def check_code():
         auth_token = check.encode_auth_token(check.id)
         print(auth_token)
         return jsonify({'message': 'right code', 'code': 200,
-                        'data': auth_token.decode('utf8')})
+                        'data': auth_token})
     else:
         return jsonify({'message': 'wrong code', 'code': 404})
 
