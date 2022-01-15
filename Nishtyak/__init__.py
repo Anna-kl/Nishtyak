@@ -6,10 +6,11 @@ from sqlalchemy import func, desc
 import uuid
 from functools import wraps
 import json
+import random2
 from flask_cors import CORS, cross_origin
 
 from flask import Flask, jsonify, make_response, request
-
+import requests
 from datetime import datetime
 from flask import render_template
 from flask_mail import Mail, Message
@@ -42,6 +43,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] \
 #app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY']='Th1s1ss3cr3t'
+app.config['URLVOICECALL'] = 'https://vp.voicepassword.ru/api/voice-password/send/'
+app.config['APIKEYVOICE'] = 'd0412b7a628a38285596c463bb37c150'
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
@@ -89,9 +92,19 @@ def signup_user(phone):
                 db.session.query(Code).filter_by(user_id=check.id).delete()
                 db.session.commit()
 
-        code='1111'
+        #code = '1111'
+        code = random2.randint(1000,9999)
+        data = {
+                  "security": { "apiKey": app.config['APIKEYVOICE'] },
+                   "number":"{0}".format(phone.replace('(','').replace(')','').replace('+','')),
+                   "flashcall": { "code": "{0}".format(code)}
+                }
+        data = json.dumps(data)
 
-        if True:
+        response = requests.post(app.config['URLVOICECALL'], data=data)
+        response = json.loads(response.text)
+        if response['result'] == 'ok':
+        #if True:
             new_code = Code(user_id=check.id, code=code)
             db.session.add(new_code)
             db.session.commit()
@@ -147,12 +160,20 @@ def getAccount(current_user):
 @token_required
 def UpdateAccount(current_user):
     json_data = request.get_json()
-    db.session.query(User).filter_by(id=current_user)\
-        .update(dict(json_data))
-    db.session.commit()
-    updateddata = User.query.filter_by(id=current_user).first()
-    return jsonify({'message': 'success', 'code': 200,
-                    'data': updateddata.as_dict()})
+    user = db.session.query(User).filter_by(id=current_user).first()
+    user.phone = json_data['phone']
+    user.name = json_data['name']
+    if json_data['email'] != None and json_data['email'] != '':
+        user.email = json_data['email']
+    try:
+        db.session.commit()
+        updateddata = User.query.filter_by(id=current_user).first()
+        return jsonify({'message': 'success', 'code': 200,
+                        'data': updateddata.as_dict()})
+    except Exception as ex:
+        return jsonify({'message': 'success', 'code': 404,
+                        'data': ex})
+
 
 # Поиск адреса клиента
 @app.route('/api/getAddress/<phone>', methods=['GET'])
