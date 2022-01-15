@@ -134,7 +134,7 @@ def check_code():
         auth_token = check.encode_auth_token(check.id)
         print(auth_token)
         return jsonify({'message': 'right code', 'code': 200,
-                        'data': auth_token})
+                        'data': auth_token.decode('utf8')})
     else:
         return jsonify({'message': 'wrong code', 'code': 404})
 
@@ -152,9 +152,6 @@ def login_user():
 @app.route('/api/user', methods=['GET'])
 @token_required
 def getAccount(current_user):
-    if 'token' in current_user:
-        return jsonify({'message': 'success', 'code': 404,
-                        'data': current_user})
     user = db.session.query(User).filter_by(id=current_user).first()
     bonus = db.session.query(Bonus).filter(current_user == Bonus.idUser).first()
     user = ShowUser(user, bonus.count)
