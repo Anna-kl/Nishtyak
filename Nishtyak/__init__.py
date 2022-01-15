@@ -146,7 +146,7 @@ def login_user():
 
     auth_token = user.encode_auth_token(user.id)
     return jsonify({'message': 'success', 'code': 200,
-                    'token': auth_token.decode('UTF-8')})
+                    'token': auth_token})
 
 # Работа с аккаунтом пользователя
 @app.route('/api/user', methods=['GET'])
