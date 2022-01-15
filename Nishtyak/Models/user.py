@@ -40,8 +40,6 @@ class User(db.Model):
         """
         try:
             payload = {
-                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=31),
-                'iat': datetime.datetime.utcnow(),
                 'sub': user_id
             }
             return jwt.encode(
