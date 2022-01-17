@@ -69,7 +69,7 @@ def token_required(f):
         except Exception as ex:
             return jsonify({'message': 'token is invalid'})
 
-        return f(user, *args, **kwargs)
+        return f(user[0], *args, **kwargs)
 
     return decorator
 
