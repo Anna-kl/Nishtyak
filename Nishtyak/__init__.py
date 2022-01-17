@@ -140,7 +140,7 @@ def check_code():
         filter(User.phone == auth['phone']).filter(Code.code == str(auth['code'])).first()
     if check:
         auth_token = check.encode_auth_token(check.id)
-        token = Token(accessToken=auth_token.decode('utf8'),
+        token = Token(accessToken=auth_token,
                       dttmCreate=datetime.now(),
                       idUser=check.id,
                       dttmExpired=datetime.now() + timedelta(days=30),
@@ -149,7 +149,7 @@ def check_code():
         db.session.commit()
         print(auth_token)
         return jsonify({'message': 'right code', 'code': 200,
-                        'data': auth_token.decode('utf8')})
+                        'data': auth_token})
     else:
         return jsonify({'message': 'wrong code', 'code': 404})
 
