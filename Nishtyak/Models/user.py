@@ -135,7 +135,7 @@ class Address(db.Model):
 
 class ShowUser:
 
-    def __init__(self, user, bonus):
+    def __init__(self, user, bonus, coupon):
         self.id = user.id
         self.email = user.email
         self.phone = user.phone
@@ -143,9 +143,10 @@ class ShowUser:
         self.name = user.name
         self.dttm_add = user.dttm_add
         self.bonus = bonus
+        self.coupon = coupon
 
     def as_dict(self):
         return {'phone': self.phone, 'name': self.name, 'bonus': self.bonus,
-                'email': self.email}
+                'email': self.email, 'coupon': self.coupon}
 
 db.create_all()

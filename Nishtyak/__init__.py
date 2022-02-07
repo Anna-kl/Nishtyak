@@ -38,7 +38,7 @@ import Nishtyak.views
 mail = Mail()
 mail.init_app(app)
 app.config['SQLALCHEMY_DATABASE_URI'] \
-    = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
+   = "postgresql://dufuauvnmhhnbi:e04834417d5b33baf80de46ff78c145979019532d52e0019de70b1e83dbf36b6@ec2-34-254-69-72.eu-west-1.compute.amazonaws.com:5432/ddq1javfo02shs"
 #app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:2537300@localhost:5432/postgres"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SECRET_KEY'] = 'Th1s1ss3cr3t'
@@ -55,7 +55,8 @@ from Nishtyak.Models.rules import Rules
 from Nishtyak.Models.winner import Winner
 from Nishtyak.Models.schedule import Schedule
 from Nishtyak.Models.token import Token
-
+from Nishtyak.Models.coupon import Coupon, UseCoupon
+from Nishtyak.Models.logs import Logs
 
 def token_required(f):
     @wraps(f)
@@ -66,10 +67,14 @@ def token_required(f):
         try:
             user = db.session.query(Token.idUser).filter(Token.accessToken == auth_header)\
                 .filter(Token.dttmExpired > datetime.utcnow()).first()
+            if user:
+                return f(user.idUser, *args, **kwargs)
+            else:
+                return f(-1, *args, **kwargs)
         except Exception as ex:
             return jsonify({'message': 'token is invalid'})
 
-        return f(user[0], *args, **kwargs)
+
 
     return decorator
 
@@ -90,7 +95,27 @@ def convert_input_to(class_=None):
 
 # Авторизация и регистрация
 @app.route('/api/register/<phone>', methods=['GET'])
-def signup_user(phone):
+def signup_user(phone):# code = '1111'
+        # code = random2.randint(1000, 9999)
+        # data = {
+        #     "security": {"apiKey": app.config['APIKEYVOICE']},
+        #     "number": "{0}".format(phone.replace('(', '').replace(')', '').replace('+', '')),
+        #     "flashcall": {"code": "{0}".format(code)}
+        # }
+        # data = json.dumps(data)
+        #
+        # response = requests.post(app.config['URLVOICECALL'], data=data)
+        # response = json.loads(response.text)
+        # print(response)
+        # if response['result'] == 'ok':
+        #     # if True:
+        #     new_code = Code(user_id=check.id, code=code)
+        #     db.session.add(new_code)
+        #     db.session.commit()
+        #     return jsonify({'message': 'user found', 'code': 200})
+        # else:
+        #     return jsonify({'message': 'call error', 'code': 500})
+    code = '1111'
     hashed_password = generate_password_hash(phone, method='sha256')
     check = User.query.filter_by(phone=phone).first()
     if check:
@@ -99,31 +124,19 @@ def signup_user(phone):
             db.session.query(Code).filter_by(user_id=check.id).delete()
             db.session.commit()
 
-        # code = '1111'
-        code = random2.randint(1000, 9999)
-        data = {
-            "security": {"apiKey": app.config['APIKEYVOICE']},
-            "number": "{0}".format(phone.replace('(', '').replace(')', '').replace('+', '')),
-            "flashcall": {"code": "{0}".format(code)}
-        }
-        data = json.dumps(data)
 
-        response = requests.post(app.config['URLVOICECALL'], data=data)
-        response = json.loads(response.text)
-        print(response)
-        if response['result'] == 'ok':
-            # if True:
-            new_code = Code(user_id=check.id, code=code)
-            db.session.add(new_code)
-            db.session.commit()
-            return jsonify({'message': 'user found', 'code': 200})
+
+        new_code = Code(user_id=check.id, code=code)
+        db.session.add(new_code)
+        db.session.commit()
+        return jsonify({'message': 'user found', 'code': 200})
 
     else:
-        coupon = None
-        new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon=coupon)
+        new_user = User(public_id=str(uuid.uuid4()),
+                        phone=phone, password=hashed_password, coupon="ONE")
         db.session.add(new_user)
         db.session.commit()
-        new_code = Code(user_id=new_user.id, code='1111')
+        new_code = Code(user_id=new_user.id, code=code)
         db.session.add(new_code)
         db.session.commit()
         bonus = Bonus(idUser=new_user.id, dttmUpdate=datetime.now(),
@@ -140,7 +153,20 @@ def check_code():
         filter(User.phone == auth['phone']).filter(Code.code == str(auth['code'])).first()
     if check:
         auth_token = check.encode_auth_token(check.id)
-        token = Token(accessToken=auth_token,
+        # coupon = db.session.query(Coupon)\
+        #     .filter(Coupon.idUser == check.id).filter(Coupon.closeAdd != None)\
+        #     .first()
+        # if coupon is None:
+        #     rule = {
+        #         'productFor':[18],
+        #         'sale':0,
+        #         'use':'onephone'
+        #     }
+        #     name = generate_password_hash(check.phone[1:9], method='sha256')[30:40]
+        #     coupon = Coupon(idUser=check.id, createAdd=datetime.now(), closeAdd=None,
+        #                     rule=json.dumps(rule), name=name)
+        #     db.session.add(coupon)
+        token = Token(accessToken=auth_token.decode('utf8'),
                       dttmCreate=datetime.now(),
                       idUser=check.id,
                       dttmExpired=datetime.now() + timedelta(days=30),
@@ -149,7 +175,7 @@ def check_code():
         db.session.commit()
         print(auth_token)
         return jsonify({'message': 'right code', 'code': 200,
-                        'data': auth_token})
+                        'data': auth_token.decode('utf8')})
     else:
         return jsonify({'message': 'wrong code', 'code': 404})
 
@@ -169,9 +195,17 @@ def login_user():
 @app.route('/api/user', methods=['GET'])
 @token_required
 def getAccount(current_user):
+    if current_user == -1:
+        return jsonify({'message': 'success', 'code': 404,
+                    'data': 'user not found'})
     user = db.session.query(User).filter_by(id=current_user).first()
     bonus = db.session.query(Bonus).filter(current_user == Bonus.idUser).first()
-    user = ShowUser(user, bonus.count)
+    #coupon = db.session.query(Coupon).filter(Coupon.idUser == user.id).first()
+    # if coupon is None:
+    #     name = generate_password_hash(user.phone[1:9], method='sha256')
+    #     coupon = Coupon(name=name, )
+
+    user = ShowUser(user, bonus.count, user.coupon)
     return jsonify({'message': 'success', 'code': 200,
                     'data': user.as_dict()})
 
@@ -179,6 +213,9 @@ def getAccount(current_user):
 @app.route('/api/user', methods=['POST'])
 @token_required
 def UpdateAccount(current_user):
+    if current_user == -1:
+        return jsonify({'message': 'success', 'code': 404,
+                    'data': 'user not found'})
     json_data = request.get_json()
     user = db.session.query(User).filter_by(id=current_user).first()
     user.phone = json_data['phone']
@@ -202,24 +239,39 @@ def getAddress(phone):
     if address is None:
         user = db.session.query(User).filter(User.phone == phone).first()
         if user is None:
-            # coupon = generate_password_hash(phone[2:5], method='sha256')
-            coupon = None
             hashed_password = generate_password_hash(phone, method='sha256')
-            new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon=None)
+            new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon='ONE')
             db.session.add(new_user)
             db.session.commit()
             bonus = Bonus(count=0, idUser=new_user.id, dttmUpdate=datetime.now())
             db.session.add(bonus)
-            db.session.commit()
+            token=createToken(new_user)
             return jsonify({'message': 'success', 'code': 404,
-                            'data': new_user.id})
+                            'data': new_user.id, 'token': token.accessToken})
         else:
+            token = db.session.query(Token).filter(Token.idUser==user.id).first()
+            if token is None:
+                token = createToken(user)
             return jsonify({'message': 'success', 'code': 404,
-                            'data': user.id})
+                            'data': user.id, 'token': token.accessToken})
     else:
+        token = db.session.query(Token).filter(Token.idUser == address.id).first()
+        if token is None:
+            token = createToken(address.address)
         return jsonify({'message': 'success', 'code': 200,
-                        'data': address.as_dict()})
+                        'data': address.as_dict(), 'token': token.accessToken})
 
+def createToken(user):
+    auth_token = user.encode_auth_token(user.id)
+
+    token = Token(accessToken=auth_token.decode('utf8'),
+                  dttmCreate=datetime.now(),
+                  idUser=user.id,
+                  dttmExpired=datetime.now() + timedelta(days=30),
+                  status=True)
+    db.session.add(token)
+    db.session.commit()
+    return token
 
 # Поиск адреса в базе
 @app.route('/api/searchAddress', methods=['POST'])
@@ -269,11 +321,18 @@ def createOrder(order):
             db.session.add(bonus)
         else:
             if order.sale == 'bonus':
+                log = Logs(name='useBonus', data='списано {0}'.bonus.count,
+                           idUser = order.idUser, dttm_add=datetime.now())
+                db.session.add(log)
                 bonus.count = 0
             bonus.count += order.totalPrice * 0.05
             bonus.dttmUpdate = datetime.now()
+
         if order.sale == 'coupon':
             user = db.session.query(User).filter(User.id == order.idUser).first()
+            log = Logs(name='useCoupon', data='купон {0}'.format(order.sale),
+                       idUser=order.idUser, dttm_add=datetime.now())
+            db.session.add(log)
             user.coupon = None
         db.session.commit()
         send = dict(
@@ -310,12 +369,13 @@ def createOrder(order):
             msg.body += '\n'
         msg.body += 'Сумма - {0}\n' \
                     'Скидка - {1}\n'.format(order.totalPrice, order.sale)
-        msg.body += 'Комментарий - {0}\n' \
-                    'Приборов - {1}'.format(order.comment, order.appliances)
+        # msg.body += 'Комментарий - {0}\n' \
+        #             'Приборов - {1}'.format(order.comment, order.appliances)
 
         # mail.send(msg)
         bot.send_message(604587575, msg.body)
         bot.send_message(1145917265, msg.body)
+
         return jsonify({'message': 'success', 'code': 201,
                         'data': send})
     except Exception as e:
@@ -342,11 +402,14 @@ def get_stock():
 @app.route('/api/deleteOrder', methods=['POST'])
 @convert_input_to(Order)
 def delete_order(sendOrder):
+    backet = db.session.query(Backets).filter(Backets.id == sendOrder.idBacket).first()
     order = db.session.query(Order).filter(Order.idBacket == sendOrder.idBacket) \
         .filter(Order.idProduct == sendOrder.idProduct)
     if order.first().toping == 'gift':
-        backet = db.session.query(Backets).filter(Backets.id == sendOrder.idBacket).first()
         if backet.option == 'gift':
+            backet.option = None
+    elif order.first().toping == 'coupon':
+        if backet.option == 'coupon':
             backet.option = None
     order.delete()
     db.session.commit()
@@ -357,6 +420,8 @@ def delete_order(sendOrder):
 @app.route('/api/backet', methods=['POST'])
 @convert_input_to(Backets)
 def createBacket(backet):
+    if backet.id == -1:
+        backet.id = None
     backetOld = db.session.query(Backets).filter(Backets.session == backet.session).first()
     if backetOld is None:
         db.session.add(backet)
@@ -380,10 +445,10 @@ def getCount(session):
 
 
 @app.route('/api/getIdBacket/<session>', methods=['GET'])
-def getIdBacket(session):
+def getBacket(session):
     backet = db.session.query(Backets).filter(Backets.session == session).first()
     if backet is not None:
-        return jsonify({'message': '', 'code': 200, 'data': backet.id})
+        return jsonify({'message': '', 'code': 200, 'data': backet.as_dict()})
     else:
         return jsonify({'message': '', 'code': 404, 'data': ''})
 
@@ -405,6 +470,8 @@ def addProduct(order):
 @convert_input_to(Order)
 def addGift(order):
     backet = db.session.query(Backets).filter(Backets.id == order.idBacket).first()
+    if backet.option == 'coupon':
+        return jsonify({'message': 'Выбран купон', 'code': 400, 'data': ''})
     if order.idProduct != -1:
         order.toping = 'gift'
 
@@ -505,20 +572,19 @@ def getTotalPrice(price):
         return jsonify({'message': '', 'code': 200, 'data': coupon.serialize()})
     else:
         user = db.session.query(User).filter(User.id == price.idUser).first()
-        if user.coupon is not None:
-            sendPrice = round(sendPrice * 0.8)
-            #  bonus = db.session.query(Bonus).filter(Bonus.idUser == user.id).first()
-            coupon = CouponSend(user.coupon, 0, sendPrice)
+        # if user.coupon is not None:
+        #     sendPrice = round(sendPrice * 0.8)
+        #     #  bonus = db.session.query(Bonus).filter(Bonus.idUser == user.id).first()
+        #     coupon = CouponSend(user.coupon, 0, sendPrice)
+        #     return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
+        bonuses = db.session.query(Bonus).filter(Bonus.idUser == user.id).first()
+        if price.isBonuses:
+            sendPrice = sendPrice - bonuses.count
+            coupon = CouponSend(user.coupon, bonuses.count, sendPrice)
             return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
         else:
-            bonuses = db.session.query(Bonus).filter(Bonus.idUser == user.id).first()
-            if price.isBonuses:
-                sendPrice = sendPrice - bonuses.count
-                coupon = CouponSend(user.coupon, bonuses.count, sendPrice)
-                return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
-            else:
-                coupon = CouponSend(user.coupon, bonuses.count, sendPrice)
-                return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
+            coupon = CouponSend(user.coupon, bonuses.count, sendPrice)
+            return jsonify({'message': '', 'code': 201, 'data': coupon.serialize()})
 
 
 @app.route('/api/getOptionalProduct/<id>', methods=['GET'])
@@ -604,3 +670,41 @@ def getHistoryOrder(current_user):
         i.desc = ','.join(desc)
     orders = list(map(lambda x: x.sendBacketInfo(), orders))
     return jsonify({'message': '', 'code': 200, 'data': orders})
+
+# купоны
+@app.route('/api/useCoupon', methods=['GET'])
+@token_required
+def useCoupon(current_user):
+    idBacket = int(request.args.get('idBacket'))
+    check = db.session.query(Backets).filter(Backets.idUser == current_user)\
+        .filter(Backets.status=='accepted').first()
+    if check is not None:
+        return jsonify({'message': 'Вы уже совершали покупки',
+                        'code': 400, 'data': ""})
+    else:
+        backet = db.session.query(Backets).filter(Backets.id==idBacket).first()
+        if backet.option=='gift':
+            orders = db.session.query(Order).filter(Order.idBacket==backet.id)\
+                .filter(Order.toping=='gift')\
+                .order_by(desc(Backets.dttmCreate)).first()
+            db.session.delete(orders)
+            backet.option=None
+            db.session.commit()
+        product = db.session.query(Coupon).filter(Coupon.name=='ONE')\
+            .filter(Coupon.idUser==None).first()
+        if product is not None:
+            rules = json.loads(product.rule)
+            for pr in rules['productFor']:
+                order = Order(idBacket=idBacket, idProduct=pr, dttmAdd=datetime.now(),
+                              count=1, price=rules['sale'], toping='coupon')
+                db.session.add(order)
+                backet.option='coupon'
+            db.session.commit()
+            return jsonify({'message': 'Добавлен в корзину',
+                            'code': 200, 'data': backet.as_dict()})
+        else:
+            return jsonify({'message': 'Данные по купону не обнаружены',
+                            'code': 500, 'data': ""})
+
+
+
