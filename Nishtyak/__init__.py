@@ -686,7 +686,7 @@ def useCoupon(current_user):
         if backet.option=='gift':
             orders = db.session.query(Order).filter(Order.idBacket==backet.id)\
                 .filter(Order.toping=='gift')\
-                .order_by(desc(Backets.dttmCreate)).first()
+                .first()
             db.session.delete(orders)
             backet.option=None
             db.session.commit()
