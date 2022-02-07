@@ -13,6 +13,7 @@ class Logs(db.Model):
     data = db.Column(db.String(), nullable=False)
     idUser = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     dttm_add = db.Column(DateTime(timezone=True), default=func.now())
+    type =  db.Column(db.Integer)
 
     def __repr__(self):
         return f"<Product: {self.name}>"

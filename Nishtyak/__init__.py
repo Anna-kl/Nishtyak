@@ -166,7 +166,7 @@ def check_code():
         #     coupon = Coupon(idUser=check.id, createAdd=datetime.now(), closeAdd=None,
         #                     rule=json.dumps(rule), name=name)
         #     db.session.add(coupon)
-        token = Token(accessToken=auth_token.decode('utf8'),
+        token = Token(accessToken=auth_token,
                       dttmCreate=datetime.now(),
                       idUser=check.id,
                       dttmExpired=datetime.now() + timedelta(days=30),
@@ -175,7 +175,7 @@ def check_code():
         db.session.commit()
         print(auth_token)
         return jsonify({'message': 'right code', 'code': 200,
-                        'data': auth_token.decode('utf8')})
+                        'data': auth_token})
     else:
         return jsonify({'message': 'wrong code', 'code': 404})
 
@@ -236,8 +236,8 @@ def UpdateAccount(current_user):
 @app.route('/api/getAddress/<phone>', methods=['GET'])
 def getAddress(phone):
     address = db.session.query(Address).join(User, User.id == Address.idUser).filter(User.phone == phone).first()
+    user = db.session.query(User).filter(User.phone == phone).first()
     if address is None:
-        user = db.session.query(User).filter(User.phone == phone).first()
         if user is None:
             hashed_password = generate_password_hash(phone, method='sha256')
             new_user = User(public_id=str(uuid.uuid4()), phone=phone, password=hashed_password, coupon='ONE')
@@ -257,14 +257,14 @@ def getAddress(phone):
     else:
         token = db.session.query(Token).filter(Token.idUser == address.id).first()
         if token is None:
-            token = createToken(address.address)
+            token = createToken(user)
         return jsonify({'message': 'success', 'code': 200,
                         'data': address.as_dict(), 'token': token.accessToken})
 
 def createToken(user):
     auth_token = user.encode_auth_token(user.id)
 
-    token = Token(accessToken=auth_token.decode('utf8'),
+    token = Token(accessToken=auth_token,
                   dttmCreate=datetime.now(),
                   idUser=user.id,
                   dttmExpired=datetime.now() + timedelta(days=30),
@@ -321,8 +321,8 @@ def createOrder(order):
             db.session.add(bonus)
         else:
             if order.sale == 'bonus':
-                log = Logs(name='useBonus', data='списано {0}'.bonus.count,
-                           idUser = order.idUser, dttm_add=datetime.now())
+                log = Logs(name='useBonus', data='списано {0}'.format(bonus.count),
+                           idUser = order.idUser, dttm_add=datetime.now(), type=1)
                 db.session.add(log)
                 bonus.count = 0
             bonus.count += order.totalPrice * 0.05
@@ -331,7 +331,7 @@ def createOrder(order):
         if order.sale == 'coupon':
             user = db.session.query(User).filter(User.id == order.idUser).first()
             log = Logs(name='useCoupon', data='купон {0}'.format(order.sale),
-                       idUser=order.idUser, dttm_add=datetime.now())
+                       idUser=order.idUser, dttm_add=datetime.now(), type=2)
             db.session.add(log)
             user.coupon = None
         db.session.commit()
@@ -504,7 +504,7 @@ def getListProducts(session):
                 for r in rule:
 
                     if order.idProduct in json.loads(r.productOn):
-                        if price[0] < r.condition:
+                        if (price[0] - order.price) < r.condition:
                             db.session.query(Order).filter(Order.id == order.id).delete()
                             backet.option = None
                             db.session.commit()
@@ -690,7 +690,7 @@ def useCoupon(current_user):
             db.session.delete(orders)
             backet.option=None
             db.session.commit()
-        product = db.session.query(Coupon).filter(Coupon.name=='ONE')\
+        product = db.session.query(Coupon).filter(Coupon.option=='ONE')\
             .filter(Coupon.idUser==None).first()
         if product is not None:
             rules = json.loads(product.rule)
