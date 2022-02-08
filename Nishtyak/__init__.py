@@ -117,35 +117,32 @@ def signup_user(phone):
     #     else:
     #         return jsonify({'message': 'call error', 'code': 500})
     #code = '1111'
+    code = random2.randint(1000, 9999)
+    data = {
+        "security": {"apiKey": app.config['APIKEYVOICE']},
+        "number": "{0}".format(phone.replace('(', '').replace(')', '').replace('+', '')),
+        "flashcall": {"code": "{0}".format(code)}
+    }
+    data = json.dumps(data)
+
+    response = requests.post(app.config['URLVOICECALL'], data=data)
+    response = json.loads(response.text)
+    print(response)
     hashed_password = generate_password_hash(phone, method='sha256')
     check = User.query.filter_by(phone=phone).first()
+    if response['result'] != 'ok':
+             return jsonify({'message': 'call error', 'code': 500})
+
     if check:
         check_code = db.session.query(Code).filter_by(user_id=check.id).first()
         if check_code:
             db.session.query(Code).filter_by(user_id=check.id).delete()
             db.session.commit()
-        code = random2.randint(1000, 9999)
-        data = {
-            "security": {"apiKey": app.config['APIKEYVOICE']},
-            "number": "{0}".format(phone.replace('(', '').replace(')', '').replace('+', '')),
-            "flashcall": {"code": "{0}".format(code)}
-        }
-        data = json.dumps(data)
-
-        response = requests.post(app.config['URLVOICECALL'], data=data)
-        response = json.loads(response.text)
-        print(response)
-        if response['result'] == 'ok':
-            # if True:
             new_code = Code(user_id=check.id, code=code)
             db.session.add(new_code)
             db.session.commit()
-        #new_code = Code(user_id=check.id, code=code)
-        #db.session.add(new_code)
-        #db.session.commit()
             return jsonify({'message': 'user found', 'code': 200})
-        else:
-             return jsonify({'message': 'call error', 'code': 500})
+
 
     else:
         new_user = User(public_id=str(uuid.uuid4()),
