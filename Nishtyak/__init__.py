@@ -367,12 +367,9 @@ def createOrder(order):
             msg.body += "Адрес доставки - {0}, дом {1}, квартира - {2}," \
                         "подъезд - {3}, этаж - {4}, код домофона - {5}\n" \
                         "Оплата - {6}\n" \
-                        "Комментарий - {7}\n" \
-                        "Приборов - {8}\n" \
                         "Заказ:\n".format(address.address, address.house,
                                           address.apartment, address.entrance, address.floor,
-                                          address.intercom, order.pay, order.comment, order.appliances,
-                                          )
+                                          address.intercom, order.pay)
         else:
             msg.body += 'Самовывоз\n'
         for p in products:
@@ -381,7 +378,11 @@ def createOrder(order):
                 msg.body += ' {0}'.format(p.Order.toping)
             msg.body += '\n'
         msg.body += 'Сумма - {0}\n' \
-                    'Скидка - {1}\n'.format(order.totalPrice, order.sale)
+                    'Скидка - {1}\n' \
+                    "Комментарий - {2}\n" \
+                    "Приборов - {3}\n" \
+            .format(order.totalPrice, order.sale, order.comment, order.appliances,)
+
         # msg.body += 'Комментарий - {0}\n' \
         #             'Приборов - {1}'.format(order.comment, order.appliances)
 
