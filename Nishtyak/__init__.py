@@ -381,7 +381,7 @@ def createOrder(order):
                     'Скидка - {1}\n' \
                     "Комментарий - {2}\n" \
                     "Приборов - {3}\n" \
-            .format(order.totalPrice, order.sale, order.comment, order.appliances,)
+             .format(order.totalPrice, order.sale, order.comment, order.appliances,)
 
         # msg.body += 'Комментарий - {0}\n' \
         #             'Приборов - {1}'.format(order.comment, order.appliances)
